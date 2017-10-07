@@ -3,53 +3,126 @@
 #include <mem.h>
 #include <assert.h>
 
-#define Strings_num 4
-
-int Comarator_of_strings(const void* first, const void* second) {
-    return (strcmp((const char*) first, (const char*) second));
-}
+char *File_read(); //put the text prom file to char's array
+int N_str(const char * poem); //count lines in poem
+char **P_partition(char * poem, int); //creating char*'s array of pointers on the strings from poem
+void Sort(char ** , int);
+//int Comparator_of_strings(const char* first, const char* second); //meaning there are not 2 alike strings
+void File_write(char *); //writing the result in another file
 
 int main() {
-    //read from file, remembering pointer on every string
-    //the beginning of new string is symbol after '\n'
-    FILE *poem;
-    //poem = fopen("C:/Users/dasch/Documents/MIPT/Technotrek/Eugene Onegin/cmake-build-debug/Onegin.txt", "r");
-    poem = fopen("Onegin.txt", "r");
-    assert(poem != NULL);
+    char *poem = File_read();
+    int num_strings = N_str(poem);
+    char **s_pointers = P_partition(poem, num_strings);
 
-    char **strings[Strings_num]; //arrays of pointers NEEDS DECLARATION
-    //We should change the type FILE* to char*
-    char *The_poem = NULL;
-    fseek(poem, 0, SEEK_END); //сместились в конец файла
-    long int num_of_symb = ftell(poem); //нашли количество символов в файле
-    The_poem = calloc(num_of_symb, sizeof(char));
-    rewind(poem);
-    fread(The_poem, sizeof(char), num_of_symb, poem); //преобразовали FILE* in char*
+    //Here the trouble begin
+    Sort(s_pointers, num_strings);
 
-    int i = 0, string = 0;
-    strings[string] = &The_poem;
-    for ( ; i < num_of_symb-1; i++) {
-        if (The_poem[i] == '\\' && The_poem[i+1] == 'n') {
-            i += 2;
-            strings[string] = &The_poem + i;
-        }
-    }
+    free(poem);
+    free(s_pointers);
 
-    int str_position = 1;
-    i = 0;
+    return 0;
+}
 
-    while (The_poem[i] != EOF) { //filling strings with pointers on strings
-        if (The_poem[i] == '\n') {
-            strings[str_position] = The_poem+i;
-            str_position++;
+char *File_read() {
+    FILE *f_poem;
+    f_poem = fopen("Onegin.txt", "r");
+    assert(f_poem != NULL); //with if?
+
+    //finding numbers of characters in the f_poem
+    fseek(f_poem, 0, SEEK_END);
+    long int num_of_symb = ftell(f_poem);
+
+    //making char's array with text
+    char *c_poem = calloc(num_of_symb, sizeof(char));
+    rewind(f_poem);
+    fread(c_poem, sizeof(char), num_of_symb, f_poem);
+    c_poem[num_of_symb] = EOF;
+
+    fclose(f_poem);
+
+    return c_poem;
+}
+
+int N_str (const char *poem) {
+    int i = 0, Nstrings = 1;
+    while (poem[i] != EOF) {
+        if (poem[i] == '\n' && poem[i+1] != EOF) {
+            Nstrings++;
         }
         i++;
     }
 
-    //To look for quick sort
-    qsort(strings, (size_t) str_position, sizeof(char *), Comarator_of_strings);
+    return Nstrings;
+}
 
-    fclose(poem);
+char ** P_partition(char *poem, int num_strings) {
+    assert(poem != NULL);
 
-    return 0;
+    int i = 0, j = 0;
+    char **s_pointers = calloc(num_strings, sizeof(char *));
+    s_pointers[j] = poem + i;
+    j++;
+    i++;
+    while (poem[i] != EOF) {
+        if (poem[i] == '\n' && poem[i+1] != EOF) {
+            s_pointers[j] = poem + i + 1;             //remember the beginning of next line
+            j++;
+        }
+        i++;
+    }
+
+    return s_pointers;
+}
+
+void Sort (char **pointers, int len) {
+    char **result = calloc(len, sizeof(char *));
+    int i = 0, j = 1;
+    for ( ; i < len; i++) {
+        for ( ; j < len; j++) {
+            int l = 0, k = 0;
+            while ((l < strlen(pointers[i])) && (l < strlen(pointers[j]))) {
+                if (*(pointers[i]) != *(pointers[j])) {
+                    k = (int) (*(pointers[i])) - (int) (*(pointers[j]));
+                    break;
+                }
+                l++;
+            }
+
+            if (k > 0) {
+                result[i] = pointers[j];
+            }
+            else {
+                result[i] = pointers[i];
+            }
+        }
+    }
+
+    for (i = 0; i < len; i++) {
+        File_write(result[i]);
+    }
+}
+
+/*int Comparator_of_strings(const char* line1, const char* line2) {
+    int i = 0;
+    while (i < strlen(line1) && i < strlen(line2)) {
+        if (line1[i] != line2[i]) {
+            return ((int) line1[i] - (int) line2[i]);
+        }
+        i++;
+    }
+}*/
+
+void File_write(char * poem) {
+    FILE *eginno;
+    eginno = fopen("Sorted.txt", "a");
+    assert(eginno != NULL);
+
+    int i = 0;
+    while (poem[i] != '\n' && poem[i] != EOF) {
+        fprintf(eginno, "%c", poem[i]);
+        i++;
+    }
+
+    fclose(eginno);
 }
