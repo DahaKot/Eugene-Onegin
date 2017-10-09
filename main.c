@@ -2,51 +2,30 @@
 #include <stdlib.h>
 #include "Constants.h"
 
-struct String {
-    unsigned long int len;//inizialization?
-    char *begin;
-};
-
-void Error_here (int err_code);                         //tell if there is a problem and what problem it is by err_code
-char *File_read (int *n);                               //put the text from file to char's array, counting num of symbols
-int N_str (const char *poem);                           //count lines in poem
-char **P_partition (char *poem, unsigned int n_str);    //creating char*'s array of pointers on the strings from poem
-int Comparator (const void *S1, const void *S2);        //compare two lines s1 and s2
-int Sort (struct String *, unsigned int);               //qsort() with some checks
-int File_write (struct String *, int);                  //writing the result in another file
-
 int main() {
     int num_symbs = POISON_N;
     char *poem = File_read(&num_symbs);
     if (poem == NULL) {                                 //wrong file reading/writing in poem
-        free(poem);
-        return 0;
+        return -1;
     }
 
-    int num_strings = N_str(poem);
-    if (num_strings == POISON_N) {                      //poem is NULL
-        free(poem);
-        return 0;
-    }
-    else if (num_strings == 0) {                        //almost emty file
+    unsigned int num_strings = N_str(poem);
+    if (num_strings == 0) {                             //almost emty file
         free(poem);
         Error_here(EMPTY_FILE);
         return 0;
     }
-    unsigned int num_strs = (unsigned int) num_strings;
 
-    char **s_pointers = P_partition(poem, num_strs);
+    char **s_pointers = P_partition(poem, num_strings);
     if (s_pointers == NULL) {                           //s_pointers is NULL
         free(poem);
-        free(s_pointers);
         return 0;
     }
 
-    struct String *strokes = (struct String *) calloc(num_strs, sizeof(struct String));
+    struct String *strokes = (struct String *) calloc(num_strings, sizeof(struct String));
     if (strokes == NULL) {                              //not enough memory to create strokes
         Error_here(NOT_ENOUGH_MEMORY);
         free(s_pointers);
-        free(strokes);
         free(poem);
         return 0;
     }
@@ -58,7 +37,7 @@ int main() {
     strokes[i].begin = s_pointers[i];                   //for the last len we haven't s_pointers[i+1]
     strokes[i].len = num_symbs - (s_pointers[i] - s_pointers[0]);
 
-    int check = Sort(strokes, num_strs);
+    int check = Sort(strokes, num_strings);
     if (check == POISON_N) {                            //Sort()'s errors
         free(s_pointers);
         free(strokes);
@@ -80,38 +59,6 @@ int main() {
     return 0;
 }
 
-void Error_here(int err_code) {
-    switch(err_code) {
-        case (FILE_NOT_FOUND): {
-            printf("No such file. Try again.");
-            break;
-        }
-        case (EMPTY_FILE): {
-            printf("File choosed is emty. No text to sort.");
-            break;
-        }
-        case (NOT_ENOUGH_MEMORY): {
-            printf("There is not enough memory. Sorry :(");
-            break;
-        }
-        case (UNEXPECTED_EOF): {
-            printf("Unexpected end of file.");
-            break;
-        }
-        case (FILE_READ_ERR): {
-            printf("File reading error.");
-            break;
-        }
-        case (BAD_POINTER): {
-            printf("Function's got invalid pointer.");
-            break;
-        }
-        default: {
-            printf("Ooops! Some error...");
-        }
-    }
-}
-
 char *File_read(int *n) {
     if (n == NULL) {
         Error_here(BAD_POINTER);
@@ -119,7 +66,7 @@ char *File_read(int *n) {
     }
 
     FILE *f_poem;
-    f_poem = fopen("Onegin.txt", "r");
+    f_poem = fopen("out2.txt", "r");
     if (f_poem == NULL) {
         Error_here(FILE_NOT_FOUND);
         fclose(f_poem);
@@ -139,26 +86,25 @@ char *File_read(int *n) {
     if (c_poem == NULL) {                               //making char's array with text
         Error_here(NOT_ENOUGH_MEMORY);
         fclose(f_poem);
-        free(c_poem); //?
         return NULL;
     }
     rewind(f_poem);
     fread(c_poem, sizeof(char), num_of_symb, f_poem);
-    c_poem[num_of_symb] = EOF;
+    c_poem[num_of_symb] = EOF;//'\0'
 
     fclose(f_poem);
 
     return c_poem;
 }
 
-int N_str (const char *poem) {
-    if (poem == NULL) {
+unsigned int N_str (const char *poem) {
+    if (poem == NULL) {                             //actually can't work
         Error_here(BAD_POINTER);
-        return POISON_N;
+        return POISON_N+1;
     }
-    int i = 0, Nstrings = 0;
+    unsigned int i = 0, Nstrings = 0;
     while (poem[i] != EOF) {
-        if (i == 0 && poem[1] == EOF && poem[i] != '\b' && poem[i] != '\n' && poem[i] != '\t') {
+        if (i == 0 && poem[1] == EOF && poem[i] != '\n' && poem[i] != '\0' && poem[i] != '\b' && poem[i] != '\t') {
             Nstrings++;                             //in case of file " EOF" Nstrings = 0; else Nstrings > 0
         }
         if (poem[i] == '\n' && poem[i+1] != EOF) {
@@ -173,7 +119,7 @@ int N_str (const char *poem) {
 char **P_partition(char *poem, unsigned int n_str) {
     if (poem == NULL) {
         Error_here(BAD_POINTER);
-        return (char **) NULL;
+        return  NULL;
     }
     if (n_str <= 0) {
         Error_here(EMPTY_FILE);
@@ -183,7 +129,6 @@ char **P_partition(char *poem, unsigned int n_str) {
     char **s_pointers = calloc(n_str, sizeof(char *));
     if (s_pointers == NULL) {
         Error_here(NOT_ENOUGH_MEMORY);
-        free(s_pointers);
         return NULL;
     }
 
@@ -211,16 +156,16 @@ int Comparator (const void *S1, const void *S2) {
     const struct String *s1 = S1;
     const struct String *s2 = S2;
 
-    int l = 0, k = 0;
+    int l = 0, result = 0;
     while (l < s1->len && l < s2->len) {
         if (s1->begin[l] != s2->begin[l]) {
-            k = (int) (s1->begin[l]) - (int) (s2->begin[l]);
+            result = (int) (s1->begin[l]) - (int) (s2->begin[l]);
             break;
         }
         l++;
     }
 
-    return  k;
+    return  result;
 }
 
 int Sort (struct String *str, unsigned int len) {
@@ -238,7 +183,7 @@ int Sort (struct String *str, unsigned int len) {
     return 0;
 }
 
-int File_write(struct String *poem, int num_strings) {
+int File_write(struct String *poem, unsigned int num_strings) {
     if (poem == NULL) {
         Error_here(BAD_POINTER);
         return POISON_N;
